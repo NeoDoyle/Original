@@ -12,6 +12,7 @@ VECT CAD estado [3];
 
 DEF tomarHay(){
      SI(REVISAR(#70FF00,12)==FALSO){
+    CONF CAD cajaLlena2 = 'Caja vacia';
       TOMAR();
       IMPR('C',LCD);
    }SINO{
@@ -26,6 +27,7 @@ DEF tomarHay(){
 DEF recorridoZucaritas(){
 REPETIR(3){
    SI(VERADELANTE()==VERDADERO){
+    CONF CAD cajaLlena3 = 'Caja llena';
       ADELANTE(4,2);
    }SINO{
       PARAR();

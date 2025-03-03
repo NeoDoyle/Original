@@ -27,6 +27,8 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.TreeMap;
 import javax.swing.JOptionPane;
 import javax.swing.JTextPane;
 import javax.swing.Timer;
@@ -49,6 +51,7 @@ public class Compilador extends javax.swing.JFrame {
     private ArrayList<TextColor> textocolor;//Colores de palabras reservadas
     private Timer timerKeyReleased; //pintar
 
+    private String funcionActual = "Global";
     private boolean estadoCompilacion = false;
     private tablaSimbolosIdent tabla;
     private tablaListas tablaV;
@@ -72,7 +75,7 @@ public class Compilador extends javax.swing.JFrame {
     private ArrayList<Production> FuncionImprimirVec;
     private ArrayList<Production> DefinirMetodos;
     private ArrayList<Production> funcRepetir;
-    
+    private TreeMap<Integer, String> mapaMetodos = new TreeMap<>();
     private ArrayList<Production> asignVec;
     private ArrayList<Production> expRel;
     
@@ -133,7 +136,7 @@ public class Compilador extends javax.swing.JFrame {
         simbolos = new ArrayList<>();
         metodosDeclarados = new ArrayList<>();
         idVector = new ArrayList<>();
-
+       
         //modificacion para hacer el semantico
         identValor = new ArrayList<>();//Asignacion con valor
         asign = new ArrayList<>();
@@ -1355,6 +1358,44 @@ public class Compilador extends javax.swing.JFrame {
         idTipoDato.put("COLOR", "Hexadecimal");
         idTipoDato.put("BOOL", "Verdadero Falso");
         
+                int pri =0;
+         // -------------------------- ERROR SEMANTICO PARA NOMBRES DE METODOS REPETIDOS
+        for(Production Metodos: DefinirMetodos){ 
+
+                String NombreMetodo = Metodos.lexemeRank(1); 
+                int lineaMetodo = Metodos.getLine();
+                
+                if(metodosDeclarados.size()<1){
+                    metodosDeclarados.add(new String[]{NombreMetodo});
+                    mapaMetodos.put(lineaMetodo, NombreMetodo);
+                    continue;
+                }
+                
+                boolean c = true;
+                
+                for (var Met:metodosDeclarados) {
+                    if (Met[0].equals(NombreMetodo) ) {
+                        errores.add(new ErrorLSSL(61, "Error Semantico {} en la linea #, el nombre de este método ya existe.", Metodos, true));
+                        c = false;
+                        break;
+                    }
+                }
+                if(c){
+                    metodosDeclarados.add(new String[]{NombreMetodo});
+                     mapaMetodos.put(lineaMetodo, NombreMetodo);
+                }
+                
+            } //error nombres metodos repetidos
+        
+        for(var m: metodosDeclarados){
+            if (m[0].equalsIgnoreCase("principal")) {
+                pri++;
+            }
+        }
+        if (pri == 0) {
+            errores.add(new ErrorLSSL(61, "Error Semantico {} en la linea #, no existe el método 'principal'.",DefinirMetodos.get(DefinirMetodos.size()-1),true));
+        }
+        
     // -------------------------- ERROR SEMANTICO: Validar el tipo de dato y el dato asignado ------------------------
         for(var id: identValor){ 
             if(!idTipoDato.get(id.lexemeRank(1)).equals(id.lexicalCompRank(-1)) && !(id.lexemeRank(1).equals("ENT") || id.lexemeRank(1).equals("BOOL"))){
@@ -1371,12 +1412,17 @@ public class Compilador extends javax.swing.JFrame {
                 String tipo_dato = id.lexemeRank(1);
                 String identificador = id.lexemeRank(2);
                 String valor = id.lexemeRank(-1);
+                int lineaSimbolo = id.getLine();
+                // Encuentra la última entrada de método cuya línea es <= a la del símbolo
+                Map.Entry<Integer, String> entry = mapaMetodos.floorEntry(lineaSimbolo);
+                String metodoAsociado = (entry != null) ? entry.getValue() : "Global"; // O algún valor por defecto
+                
                 if(simbolos.size()<1){
-                    simbolos.add(new String[]{identificador,tipo_dato,valor,id.getLine()+""});
+                    simbolos.add(new String[]{identificador,tipo_dato,valor,id.getLine()+"",metodoAsociado});
                     continue;
                 }
                 //ERROR SEMANTICO 5: declaracion de variable repetida.
-                boolean c = true;
+                boolean c = true;              
                 for (var s:simbolos) {
                     if (s[0].equals(identificador) ) {
                         errores.add(new ErrorLSSL(5, "Error Semantico {} en la linea #, declaración de una variable previamente declarada", id, true));
@@ -1386,7 +1432,7 @@ public class Compilador extends javax.swing.JFrame {
                     
                 }
                 if(c){
-                    simbolos.add(new String[]{identificador, tipo_dato, valor, id.getLine() + ""});
+                    simbolos.add(new String[]{identificador, tipo_dato, valor, id.getLine() + "",metodoAsociado});
                 }
             }
         }
@@ -1396,7 +1442,7 @@ public class Compilador extends javax.swing.JFrame {
             String tipoDato = id.lexemeRank(1);
             String nombre = id.lexemeRank(2); //id,td,valor,declaracion,ref
             if(simbolos.size()<1){
-                simbolos.add(new String[]{nombre,tipoDato,null,id.getLine()+""});
+                simbolos.add(new String[]{nombre,tipoDato,null,id.getLine()+"","Este es el 3"});
                 continue;
             }
             //ERROR SEMANTICO 5: declaracion de variable repetida.
@@ -1409,7 +1455,7 @@ public class Compilador extends javax.swing.JFrame {
                 c++;
             }
             if (c == simbolos.size()) {
-                simbolos.add(new String[]{nombre, tipoDato, null, id.getLine() + ""});
+                simbolos.add(new String[]{nombre, tipoDato, null, id.getLine() + "","Este es el 4"});
             }
         }
         
@@ -1925,44 +1971,7 @@ public class Compilador extends javax.swing.JFrame {
                 }//Primer default
             }//Primer switch
                         
-        }//Errores en expresion logica
-        
-        
-        int pri =0;
-         // -------------------------- ERROR SEMANTICO PARA NOMBRES DE METODOS REPETIDOS
-        for(Production Metodos: DefinirMetodos){ 
-
-                String NombreMetodo = Metodos.lexemeRank(1); 
-                
-                if(metodosDeclarados.size()<1){
-                    metodosDeclarados.add(new String[]{NombreMetodo});
-                    continue;
-                }
-                
-                boolean c = true;
-                
-                for (var Met:metodosDeclarados) {
-                    if (Met[0].equals(NombreMetodo) ) {
-                        errores.add(new ErrorLSSL(61, "Error Semantico {} en la linea #, el nombre de este método ya existe.", Metodos, true));
-                        c = false;
-                        break;
-                    }
-                }
-                if(c){
-                    metodosDeclarados.add(new String[]{NombreMetodo});
-                }
-                
-            } //error nombres metodos repetidos
-        
-        for(var m: metodosDeclarados){
-            if (m[0].equalsIgnoreCase("principal")) {
-                pri++;
-            }
-        }
-        if (pri == 0) {
-            errores.add(new ErrorLSSL(61, "Error Semantico {} en la linea #, no existe el método 'principal'.",DefinirMetodos.get(DefinirMetodos.size()-1),true));
-        }
-        
+        }//Errores en expresion logica        
         
         //------------------- ERROR SEMÁNTICO 3: La condición de repitr no es número entero ---------
         for(Production r: funcRepetir){
